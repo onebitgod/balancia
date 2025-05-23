@@ -2,7 +2,6 @@ package conf
 
 import (
 	"flag"
-	"fmt"
 	"os"
 
 	"github.com/onebitgod/balancia/logger"
@@ -30,11 +29,11 @@ func Load() (conf *Conf) {
 	data, err := os.ReadFile(confPath)
 
 	if len(yamlPath) == 0 && err != nil {
-		logger.Info("No conf.yaml is found in current directory. Use --conf=path/to/conf.yaml.")
+		logger.Warnf("No conf.yaml is found in current directory. Use --conf=path/to/conf.yaml.")
 	}
 
 	if err != nil {
-		logger.Errorf("Failed to read YAML file: %v", err)
+		logger.Errorf("Failed to read YAML file: %s", err)
 		return
 	}
 
@@ -43,6 +42,5 @@ func Load() (conf *Conf) {
 		logger.Errorf("Failed to parse YAML: %v", err)
 	}
 
-	fmt.Printf("Parsed Config:\n%+v\n", conf.Port)
 	return
 }

@@ -22,7 +22,6 @@ func (s *Specs) ValidateSpecs(index int) {
 		logger.Warnf("If no matching host is specified in the configuration, the request will be routed to the first matching path under entries that do not define a host.")
 	} else {
 		logger.Infof("%s provided at index %d will be served", s.Host, index)
-		logger.Infof("%s is getting configured", s.Host)
 	}
 
 	if len(s.Paths) == 0 {
@@ -31,22 +30,30 @@ func (s *Specs) ValidateSpecs(index int) {
 	}
 
 	for _, p := range s.Paths {
-		p.ValidatePath()
+		p.ValidatePath(s)
 	}
 
 }
 
-func (p *Path) ValidatePath() {
+func (p *Path) ValidatePath(s *Specs) {
 
 	if len(p.Backend.Upstreams) == 0 {
 		logger.Warnf("At least provide one upstream for path : %s", p.Path)
 		return
 	}
 
-	// for _, u := range p.Backend.Upstreams {
-	// 	// if len(p) == 0 {
-	// 	// 	logger.Warnf("At least provide one service to be served", index)
-	// 	// }
-	// }
+	for i, u := range p.Backend.Upstreams {
+		if len(u.Host) == 0 {
+			logger.Warnf("No upstream host provided at index %d", i)
+		}
+		port := u.Port
+		if u.Port == 0 {
+			logger.Warnf("Port not provided for upstream host : %s. Request will be forwarded to default port: 80", u.Host)
+			port = 80
+		}
+
+		logger.Infof("Upstream host %s:%d will be configured", u.Host, port)
+		logger.Infof("Reverse Proxy will be configured is configured for source host %s to %s:%d", s.Host, u.Host, port)
+	}
 
 }

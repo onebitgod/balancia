@@ -1,0 +1,24 @@
+port: 80
+specs:
+  - host: api.example1.com
+    paths:
+    - backend:
+        upstreams:
+          - host: api1.example.com
+          - host: api1.example.com
+      path: /abc
+    - backend:
+        upstreams:
+          - host: localhost
+            port: 8081
+          - host: localhost
+            port: 8082
+      path: /abc
+  - paths:
+    - backend:
+        upstreams:
+          - host: localhost
+            port: 8083
+      path: /xyz
+
+
