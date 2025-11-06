@@ -1,0 +1,126 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: cpe-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: balancia
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: cpe-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # Qdrant Vector Database
+  qdrant:
+    image: qdrant/qdrant:v1.7.4
+    container_name: cpe-qdrant
+    restart: unless-stopped
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    environment:
+      QDRANT__SERVICE__GRPC_PORT: 6334
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # Common Phrase Engine Service
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cpe-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # Server
+      PORT: 3000
+      NODE_ENV: production
+
+      # Database
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: balancia
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_SSL: false
+
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+      REDIS_KEY_PREFIX: "cpe:"
+      REDIS_TTL: 86400
+
+      # Qdrant
+      QDRANT_URL: http://qdrant:6333
+      QDRANT_COLLECTION_WEIGHTED: posts_weighted
+      QDRANT_COLLECTION_MASKED: posts_masked
+      QDRANT_COLLECTION_FULL: posts_full
+      VECTOR_SIZE: 1536
+
+      # Embedding (provide your own API key)
+      EMBEDDING_API_URL: https://api.openai.com/v1
+      EMBEDDING_API_KEY: ${OPENAI_API_KEY}
+      EMBEDDING_MODEL: text-embedding-ada-002
+      EMBEDDING_DIMENSIONS: 1536
+
+      # Common Phrase Thresholds
+      THRESHOLD_VERY_COMMON: 0.10
+      THRESHOLD_COMMON: 0.05
+      THRESHOLD_SOMEWHAT_COMMON: 0.03
+
+      # Analytics
+      ANALYTICS_SCHEDULE_TIME: "0 2 * * *"
+      ANALYTICS_LOOKBACK_DAYS: 30
+      ANALYTICS_BATCH_SIZE: 10000
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+    volumes:
+      - ./logs:/app/logs
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  qdrant_data:
+    driver: local
